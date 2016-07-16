@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>public</access>
+        <active>false</active>
+        <api_name>global.Clickatell</api_name>
+        <client_callable>false</client_callable>
+        <description>Replaces SMSSenderJob with Clickatell SMS gateway integration. Queries sys_email table for SMS messages in the send-ready state, extracts phone numbers from list of recipients, and sends via Clickatell HTTPS API.</description>
+        <name>Clickatell</name>
+        <script><![CDATA[var Clickatell = Class.create();
+Clickatell.prototype = {
+    initialize: function() {
+    },
+
+    callClickatellURL: function(smsNumber, smsMessage) {
+        var restQuery = new RESTMessage('Clickatell send SMS', 'get');
+        restQuery.setStringParameter('user', gs.getProperty('clickatell.user') );
+gs.log( 'Clickatell: ' + gs.getProperty('clickatell.user') );
+        restQuery.setStringParameter('api_id', gs.getProperty('clickatell.api_id') );
+gs.log( 'Clickatell: ' + gs.getProperty('clickatell.api_id') );
+        restQuery.setStringParameter('password', encodeURIComponent(gs.getProperty('clickatell.password')) );
+gs.log( 'Clickatell: ' + encodeURIComponent(gs.getProperty('clickatell.password')) );
+        restQuery.setStringParameter('to', encodeURIComponent(smsNumber) );
+gs.log( 'Clickatell: ' + encodeURIComponent(smsNumber) );
+        restQuery.setStringParameter('text', encodeURIComponent(smsMessage) );
+gs.log( 'Clickatell: ' + encodeURIComponent(smsMessage) );
+        var response = restQuery.execute();
+        return response.getBody();
+    },
+
+    logResponseFromClickatell: function(emailSysID, phoneNumber, response) {
+        var gr = new GlideRecord('syslog');
+        gr.init();
+        gr.source = 'EMAIL.' + emailSysID;
+        gr.message = 'Clickatell response for phone ' + phoneNumber + ': ' + response;
+        gr.insert();
+    },
+
+    sendMessagesFromQueue: function() {
+        var gr = new GlideRecord('sys_email');
+        gr.addQuery('notification_type','SMS');
+        gr.addQuery('type','send-ready');
+        gr.query();
+        while( gr.next() ) {
+            var listOfNumbers = this.extractSMSNumbers(gr.recipients);
+            for( var i=0; i<listOfNumbers.length; i++ ) {
+                var response = this.callClickatellURL(listOfNumbers[i], gr.body);
+                this.logResponseFromClickatell( gr.sys_id, listOfNumbers[i], response );
+                //gr.error_string += listOfNumbers[i] + ':' + response + "\r";
+            }
+            gr.type = 'sent'; // mark message as sent, so we don't try to send again
+            gr.update();
+        }
+    },
+
+    extractSMSNumbers: function(listOfSMSEmails) {
+        var recipients = listOfSMSEmails.split(',');
+        var arrayLength = recipients.length;
+        var returnArray = new Array();
+        for (var i = 0; i < arrayLength; i++) {
+            returnArray.push( recipients[i].split('@')[0] ); // strip off gateway email address
+        }
+        return returnArray;
+    },
+
+    type: 'Clickatell'
+}]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>grant.hulbert@snc</sys_created_by>
+        <sys_created_on>2014-04-13 16:10:20</sys_created_on>
+        <sys_customer_update>true</sys_customer_update>
+        <sys_id>5fed747df5cca500dc36fcb02db7e92a</sys_id>
+        <sys_mod_count>1</sys_mod_count>
+        <sys_name>Clickatell</sys_name>
+        <sys_package display_value="Clickatell SMS" source="2f9f7496f5c0e500dc36fcb02db7e9af">2f9f7496f5c0e500dc36fcb02db7e9af</sys_package>
+        <sys_policy/>
+        <sys_replace_on_upgrade>false</sys_replace_on_upgrade>
+        <sys_scope display_value="Clickatell SMS">2f9f7496f5c0e500dc36fcb02db7e9af</sys_scope>
+        <sys_update_name>sys_script_include_5fed747df5cca500dc36fcb02db7e92a</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2016-05-13 16:59:43</sys_updated_on>
+    </sys_script_include>
+</record_update>

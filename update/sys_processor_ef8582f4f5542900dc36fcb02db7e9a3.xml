@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<record_update table="sys_processor">
+    <sys_processor action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <class_name/>
+        <description>Adds (if new) or updates (if existing) cmn_notif_device with unique iOS push notification token. Used by iOS app to automatically synchronize a ServiceNow User record with the device's ID</description>
+        <interactive>false</interactive>
+        <name>UpdatePushNotificationDevice</name>
+        <parameters>username, pushToken</parameters>
+        <params_endpoint/>
+        <path>push_token</path>
+        <path_endpoint/>
+        <require_csrf>false</require_csrf>
+        <roles/>
+        <script><![CDATA[updatePushToken();
+
+   // Search for pre-existing Device that is of type iOS Push, and replace its token
+   // If no such device exists, then insert one
+function updatePushToken() {
+   var username = g_request.getParameter("username");
+   g_processor.writeOutput("text/html", "<html><head></head><body>");
+   g_processor.writeOutput(g_request.getParameter("username"));
+   var notifGR = new GlideRecord("cmn_notif_device");
+   notifGR.addQuery('user.username',username);
+   notifGR.addQuery('type','iOS');
+   notifGR.query();
+   if (notifGR.next()) {
+      // Found pre-existing record, so update it with current iOS push token
+      g_processor.writeOutput("found " + notifGR.sys_id + " " + notifGR.name);
+      notifGR.phone_number = g_request.getParameter("pushToken");
+      notifGR.update();
+   } else {
+      // no record found, so if the user exists, then create a new cmn_notif_device record for them
+      var userGR = new GlideRecord('sys_user');
+      userGR.addQuery('user_name', g_request.getParameter("username"));
+      userGR.query();
+      // yup, user exists, so now add a new cmn_notif_device record for them
+      if( userGR.next() ) {
+         notifGR = new GlideRecord('cmn_notif_device');
+         notifGR.initialize();
+         g_processor.writeOutput(username + " cmn_notif_device record not found, adding it");
+         notifGR.user = g_request.getParameter('username');
+         notifGR.name = "iOS Push";
+         notifGR.type = "iOS";
+         notifGR.phone_number = g_request.getParameter('pushToken');
+         notifGR.insertWithReferences();
+         g_processor.writeOutput("ref " + notifGR.name );
+      } else {
+         g_processor.writeOutput('error: user ' + g_request.getParameter('username') + ' not found' );
+      }
+   }
+g_processor.writeOutput('</body></html>');
+}]]></script>
+        <sys_class_name>sys_processor</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2014-04-23 05:01:35</sys_created_on>
+        <sys_customer_update>true</sys_customer_update>
+        <sys_id>ef8582f4f5542900dc36fcb02db7e9a3</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>UpdatePushNotificationDevice</sys_name>
+        <sys_package display_value="Clickatell SMS" source="2f9f7496f5c0e500dc36fcb02db7e9af">2f9f7496f5c0e500dc36fcb02db7e9af</sys_package>
+        <sys_policy/>
+        <sys_replace_on_upgrade>false</sys_replace_on_upgrade>
+        <sys_scope display_value="Clickatell SMS">2f9f7496f5c0e500dc36fcb02db7e9af</sys_scope>
+        <sys_update_name>sys_processor_ef8582f4f5542900dc36fcb02db7e9a3</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2014-05-04 02:50:39</sys_updated_on>
+        <type>script</type>
+    </sys_processor>
+</record_update>
